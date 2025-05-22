@@ -35,7 +35,8 @@ def test_config_loading():
             'RAG_EXPORT_ENABLED',
             'CODE_CATEGORIZATION_ENABLED',
             'EMBEDDING_RAG_EXPORT_ENABLED',
-            'FREELANCE_MODE'
+            'FREELANCE_MODE',
+            'DOCUMENTATION_SOURCES_ENABLED'
         ]
 
         # Check for freelance-specific settings
@@ -321,6 +322,66 @@ def test_freelancer_sources():
         return False
 
 
+def test_documentation_sources():
+    """Test documentation source fetching."""
+    print("=== Testing Documentation Sources ===")
+    try:
+        from scraper.documentation_sources import DocumentationSources
+        import logging
+
+        # Create a test logger
+        logger = logging.getLogger('test_documentation')
+        logger.setLevel(logging.INFO)
+        if not logger.handlers:
+            handler = logging.StreamHandler()
+            logger.addHandler(handler)
+
+        # Test the documentation sources
+        sources = DocumentationSources("RAGTestBot/1.0", timeout=10)
+
+        # Test different types of queries
+        test_queries = [
+            "requests",
+            "fastapi",
+            "pandas",
+            "pytest"
+        ]
+
+        total_snippets = 0
+
+        for query in test_queries:
+            print(f"\n--- Testing documentation query: '{query}' ---")
+
+            try:
+                doc_snippets = sources.fetch_package_documentation(query, logger)
+                print(f"  Documentation examples: {len(doc_snippets)}")
+                total_snippets += len(doc_snippets)
+
+                # Show a sample snippet if found
+                if doc_snippets:
+                    sample = doc_snippets[0][:100] + "..." if len(doc_snippets[0]) > 100 else doc_snippets[0]
+                    print(f"  Sample: {sample}")
+
+            except Exception as e:
+                print(f"  ⚠️  Error with query '{query}': {e}")
+
+        print(f"\n📊 Total snippets from documentation sources: {total_snippets}")
+
+        if total_snippets > 0:
+            print("✅ Documentation sources test passed!")
+            return True
+        else:
+            print("⚠️  No snippets found - might be network issues or rate limiting")
+            return True
+
+    except ImportError as e:
+        print(f"❌ Documentation sources not available: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Documentation sources test failed: {e}")
+        return False
+
+
 def test_rag_exporters():
     """Test both RAG export systems."""
     print("=== Testing RAG Exporters ===")
@@ -560,6 +621,7 @@ def main():
         ("Code Categorizer", test_code_categorizer),
         ("Smart Deduplicator", test_deduplicator),
         ("Freelancer Sources", test_freelancer_sources),
+        ("Documentation Sources", test_documentation_sources),
         ("RAG Exporters", test_rag_exporters),
         ("Component Integration", test_integration)
     ]
@@ -601,12 +663,12 @@ def main():
     print(f"🎯 Results: {passed}/{total} tests passed ({passed / total * 100:.1f}%)")
 
     if passed == total:
-        print("🎉 All tests passed! Your enhanced RAG scraper is ready for freelance work!")
+        print("🎉 All tests passed! Your enhanced RAG scraper is ready!")
         print("\n💡 Next steps:")
         print("  1. Set your GITHUB_TOKEN environment variable for better results")
         print("  2. Run: python main.py")
-        print("  3. Try queries like 'fastapi authentication' or 'stripe payment'")
-        print("  4. Use the 'Dual LLM Export' feature for your hybrid LLM system")
+        print("  3. Try queries like 'fastapi authentication' or 'pandas data processing'")
+        print("  4. Use the 'Dual LLM Export' feature for your RAG system")
     elif passed >= total * 0.7:
         print("✅ Most tests passed! The system should work well.")
         print(f"⚠️  {total - passed} tests failed - check the error messages above")

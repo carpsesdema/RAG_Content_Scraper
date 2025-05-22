@@ -16,7 +16,6 @@ try:
     from .freelancer_sources import search_freelancer_sources
     from ..utils.deduplicator import SmartDeduplicator
     from ..utils.code_categorizer import CodeCategorizer
-    from ..storage.embedding_rag_exporter import EmbeddingRAGExporter
 
     ENHANCED_FEATURES_AVAILABLE = True
     FREELANCER_FEATURES_AVAILABLE = True
@@ -579,7 +578,8 @@ def search_and_fetch(query, logger, progress_callback=None):
         nonlocal current_step_for_progress
         current_step_for_progress += 1
         if progress_callback:
-            percentage = int((current_step_for_progress / total_configured_steps) * 85)  # Leave 15% for post-processing
+            percentage = int(
+                (current_step_for_progress / total_configured_steps) * 85)  # Leave 15% for post-processing
             progress_callback(f"Query '{query}': Fetching from {source_name}...", percentage)
 
     # === EXISTING SOURCES ===
@@ -747,6 +747,7 @@ def search_and_fetch(query, logger, progress_callback=None):
                                  if item['metadata'].get('freelance_relevant', False))
         high_value = sum(1 for item in logger.enhanced_snippet_data
                          if 'high_value' in item['metadata'].get('client_value', ''))
-        logger.info(f"Freelance insights: {freelance_relevant} relevant snippets, {high_value} high-value for clients")
+        logger.info(
+            f"Freelance insights: {freelance_relevant} relevant snippets, {high_value} high-value for clients")
 
     return unique_snippets_for_query

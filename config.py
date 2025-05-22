@@ -38,6 +38,12 @@ DOCS_CRAWL_RESPECT_ROBOTS_TXT = True
 # Example: DOCS_CRAWL_ALLOWED_DOMAINS = ["docs.python.org", "realpython.com"]
 DOCS_CRAWL_ALLOWED_DOMAINS = []
 
+# --- Documentation Scraping Settings ---
+DOCUMENTATION_SOURCES_ENABLED = True
+DOC_SCRAPING_TIMEOUT = 20
+DOC_MAX_PAGES_PER_SITE = 5
+DOC_MAX_SNIPPETS_PER_PAGE = 10
+
 # --- Searcher Settings ---
 
 # Python Standard Library Docs
@@ -73,7 +79,7 @@ GITHUB_FILE_DOWNLOAD_TIMEOUT = 20             # Was 15
 EXTRACT_WHOLE_SMALL_PY_FILES = True
 MAX_LINES_FOR_WHOLE_FILE_EXTRACTION = 150 # If file has fewer lines than this, and EXTRACT_WHOLE_SMALL_PY_FILES is True
 
-SEARCH_SOURCES_COUNT = 4 # Stays the same for now unless we add a new *type* of source
+SEARCH_SOURCES_COUNT = 5 # Updated to include documentation sources
 
 # --- Storage Settings ---
 DEFAULT_SNIPPET_FILENAME_SLUG_MAX_LENGTH = 60 # Slightly longer for potentially more varied snippets
@@ -271,6 +277,7 @@ SOURCE_PRIORITY_WEIGHTS = {
     'stackoverflow': 1.2,
     'github_readme': 1.1,
     'github_files': 1.5,  # Higher weight for actual implementation
+    'documentation': 1.8,  # High priority for official docs
     'freelancer': 2.0,    # Highest weight for freelancer-specific sources
     'additional': 1.3
 }
