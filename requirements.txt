@@ -1,6 +1,24 @@
+# Core GUI and HTTP
 PySide6
 requests
 beautifulsoup4
 lxml
+
+# GitHub API
 PyGithub
+
+# Data processing and export
 pyyaml
+pandas
+numpy
+
+# Optional but recommended for enhanced features
+# sentence-transformers  # Uncomment for semantic similarity
+# openai  # Uncomment for AI-powered summaries
+# plotly  # Uncomment for data visualization
+
+# Development and testing (optional)
+# pytest
+# pytest-cov
+# black
+# flake8

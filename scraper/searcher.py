@@ -1,4 +1,5 @@
 # scraper/searcher.py - Enhanced Max Power Edition!
+
 import os
 import re
 import requests
@@ -12,12 +13,17 @@ from .parser import _clean_snippet_text, extract_code as extract_code_from_html_
 try:
     from .quality_filter import CodeQualityFilter
     from .additional_sources import search_additional_sources
+    from .freelancer_sources import search_freelancer_sources
     from ..utils.deduplicator import SmartDeduplicator
+    from ..utils.code_categorizer import CodeCategorizer
+    from ..storage.embedding_rag_exporter import EmbeddingRAGExporter
 
     ENHANCED_FEATURES_AVAILABLE = True
+    FREELANCER_FEATURES_AVAILABLE = True
 except ImportError as e:
     print(f"Enhanced features not available: {e}")
     ENHANCED_FEATURES_AVAILABLE = False
+    FREELANCER_FEATURES_AVAILABLE = False
 
 try:
     from config import (
@@ -33,7 +39,12 @@ try:
         EXTRACT_WHOLE_SMALL_PY_FILES, MAX_LINES_FOR_WHOLE_FILE_EXTRACTION,
         # Crawler settings
         GITHUB_CRAWL_PARSE_DEPENDENCIES, STACKOVERFLOW_CRAWL_EXPLORE_TAGS,
-        CRAWLER_ENABLED
+        CRAWLER_ENABLED,
+        # Enhanced settings
+        QUALITY_FILTER_ENABLED, SMART_DEDUPLICATION_ENABLED,
+        ADDITIONAL_SOURCES_ENABLED, FREELANCER_SOURCES_ENABLED,
+        CODE_CATEGORIZATION_ENABLED, FREELANCE_MODE,
+        SOURCE_PRIORITY_WEIGHTS
     )
 except ImportError:
     logging.critical(
@@ -63,6 +74,17 @@ except ImportError:
     CRAWLER_ENABLED = False
     GITHUB_CRAWL_PARSE_DEPENDENCIES = False
     STACKOVERFLOW_CRAWL_EXPLORE_TAGS = False
+    # Enhanced fallbacks
+    QUALITY_FILTER_ENABLED = False
+    SMART_DEDUPLICATION_ENABLED = False
+    ADDITIONAL_SOURCES_ENABLED = False
+    FREELANCER_SOURCES_ENABLED = False
+    CODE_CATEGORIZATION_ENABLED = False
+    FREELANCE_MODE = False
+    SOURCE_PRIORITY_WEIGHTS = {
+        'stdlib': 1.0, 'stackoverflow': 1.0, 'github_readme': 1.0,
+        'github_files': 1.0, 'freelancer': 1.0, 'additional': 1.0
+    }
 
 
 def _get_source_segment(source_lines, node):
@@ -505,7 +527,7 @@ def fetch_github_file_snippets(query, logger, max_repos=None, files_per_repo_tar
 
 
 def search_and_fetch(query, logger, progress_callback=None):
-    """Enhanced search with quality filtering and smart deduplication."""
+    """Enhanced search with quality filtering, categorization, and smart deduplication."""
 
     global ENHANCED_FEATURES_AVAILABLE
 
@@ -521,11 +543,16 @@ def search_and_fetch(query, logger, progress_callback=None):
     enhanced_features_working = ENHANCED_FEATURES_AVAILABLE
     quality_filter = None
     deduplicator = None
+    categorizer = None
 
     if ENHANCED_FEATURES_AVAILABLE:
         try:
-            quality_filter = CodeQualityFilter()
-            deduplicator = SmartDeduplicator()
+            if QUALITY_FILTER_ENABLED:
+                quality_filter = CodeQualityFilter()
+            if SMART_DEDUPLICATION_ENABLED:
+                deduplicator = SmartDeduplicator()
+            if CODE_CATEGORIZATION_ENABLED:
+                categorizer = CodeCategorizer()
         except Exception as e:
             logger.warning(f"Could not initialize enhanced features: {e}")
             enhanced_features_working = False
@@ -538,15 +565,13 @@ def search_and_fetch(query, logger, progress_callback=None):
     total_configured_steps = 4  # Your existing 4 sources
 
     # Check if additional sources are enabled
-    additional_sources_enabled = False
-    try:
-        from config import ADDITIONAL_SOURCES_ENABLED
-        additional_sources_enabled = ADDITIONAL_SOURCES_ENABLED
-    except ImportError:
-        additional_sources_enabled = False
+    additional_sources_enabled = ADDITIONAL_SOURCES_ENABLED
+    freelancer_sources_enabled = FREELANCER_SOURCES_ENABLED and FREELANCER_FEATURES_AVAILABLE
 
     if enhanced_features_working and additional_sources_enabled:
         total_configured_steps += 1  # Add step for additional sources
+    if enhanced_features_working and freelancer_sources_enabled:
+        total_configured_steps += 1  # Add step for freelancer sources
 
     current_step_for_progress = 0
 
@@ -600,6 +625,8 @@ def search_and_fetch(query, logger, progress_callback=None):
         logger.error(f"Error in fetch_github_file_snippets for '{query}': {e}", exc_info=True)
 
     # === NEW ENHANCED SOURCES ===
+
+    # Additional sources
     if enhanced_features_working and additional_sources_enabled:
         _do_progress_update("Additional Sources")
         try:
@@ -609,26 +636,57 @@ def search_and_fetch(query, logger, progress_callback=None):
         except Exception as e:
             logger.error(f"Error in additional sources for '{query}': {e}", exc_info=True)
 
+    # Freelancer-specific sources
+    if enhanced_features_working and freelancer_sources_enabled:
+        _do_progress_update("Freelancer Sources")
+        try:
+            freelancer_snippets = search_freelancer_sources(query, logger)
+            all_snippets.extend(freelancer_snippets)
+            all_sources.extend(['freelancer'] * len(freelancer_snippets))
+        except Exception as e:
+            logger.error(f"Error in freelancer sources for '{query}': {e}", exc_info=True)
+
     logger.info(f"RAW TOTAL: {len(all_snippets)} snippets gathered for query '{query}' before processing.")
 
     # === ENHANCED PROCESSING ===
     if enhanced_features_working and quality_filter and deduplicator:
-        # Apply quality filtering
+        # Apply quality filtering and categorization
         if progress_callback:
-            progress_callback("Applying quality filters...", 87)
+            progress_callback("Applying quality filters and categorization...", 87)
 
-        # Check if quality filtering is enabled
-        quality_filter_enabled = True
-        try:
-            from config import QUALITY_FILTER_ENABLED
-            quality_filter_enabled = QUALITY_FILTER_ENABLED
-        except ImportError:
-            quality_filter_enabled = True
-
-        if quality_filter_enabled:
+        if QUALITY_FILTER_ENABLED:
             try:
-                scored_snippets = quality_filter.filter_snippets(all_snippets, all_sources)
-                logger.info(f"Quality filtering: {len(all_snippets)} -> {len(scored_snippets)} snippets")
+                # Enhanced processing with categorization
+                enhanced_snippets = []
+                for i, (snippet, source) in enumerate(zip(all_snippets, all_sources)):
+                    # Apply categorization if available
+                    if categorizer:
+                        categorization = categorizer.categorize_snippet(snippet)
+                        # Apply source priority weighting
+                        base_score = categorization.get('freelance_score', 0) + 5  # Base score
+                        source_weight = SOURCE_PRIORITY_WEIGHTS.get(source, 1.0)
+                        weighted_score = base_score * source_weight
+
+                        enhanced_snippets.append({
+                            'code': snippet,
+                            'score': weighted_score,
+                            'metadata': categorization
+                        })
+                    else:
+                        # Fallback to basic quality scoring
+                        result = quality_filter.score_snippet(snippet, source)
+                        enhanced_snippets.append({
+                            'code': snippet,
+                            'score': result['score'],
+                            'metadata': result['metadata']
+                        })
+
+                # Filter by minimum quality score
+                min_score = globals().get('MIN_SNIPPET_QUALITY_SCORE', 3)
+                scored_snippets = [s for s in enhanced_snippets if s['score'] >= min_score]
+
+                logger.info(
+                    f"Quality filtering: {len(all_snippets)} -> {len(scored_snippets)} snippets (min score: {min_score})")
             except Exception as e:
                 logger.error(f"Quality filtering failed: {e}")
                 # Fallback without scoring
@@ -647,15 +705,7 @@ def search_and_fetch(query, logger, progress_callback=None):
         if progress_callback:
             progress_callback("Removing duplicates...", 92)
 
-        # Check if smart deduplication is enabled
-        smart_dedup_enabled = True
-        try:
-            from config import SMART_DEDUPLICATION_ENABLED
-            smart_dedup_enabled = SMART_DEDUPLICATION_ENABLED
-        except ImportError:
-            smart_dedup_enabled = True
-
-        if smart_dedup_enabled:
+        if SMART_DEDUPLICATION_ENABLED:
             try:
                 final_snippets_data = []
                 for snippet_data in scored_snippets:
@@ -670,6 +720,9 @@ def search_and_fetch(query, logger, progress_callback=None):
                 final_snippets_data = scored_snippets
         else:
             final_snippets_data = scored_snippets
+
+        # Sort by score (highest first) for better results
+        final_snippets_data.sort(key=lambda x: x.get('score', 0), reverse=True)
 
         # Extract just the code for backward compatibility
         unique_snippets_for_query = [item['code'] for item in final_snippets_data]
@@ -687,5 +740,13 @@ def search_and_fetch(query, logger, progress_callback=None):
 
     logger.info(f"FINAL: {len(unique_snippets_for_query)} unique snippets for query '{query}'.")
     logger.info(f"Discovered {len(discovered_queries)} potential new search terms.")
+
+    # Log freelance-specific insights if available
+    if enhanced_features_working and hasattr(logger, 'enhanced_snippet_data'):
+        freelance_relevant = sum(1 for item in logger.enhanced_snippet_data
+                                 if item['metadata'].get('freelance_relevant', False))
+        high_value = sum(1 for item in logger.enhanced_snippet_data
+                         if 'high_value' in item['metadata'].get('client_value', ''))
+        logger.info(f"Freelance insights: {freelance_relevant} relevant snippets, {high_value} high-value for clients")
 
     return unique_snippets_for_query
