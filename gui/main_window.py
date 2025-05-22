@@ -1,4 +1,4 @@
-# gui/main_window.py (Part 1 of 2)
+# gui/main_window.py - Enhanced with RAG Export Features
 
 import sys
 from PySide6.QtCore import Qt, QThread, Signal
@@ -23,8 +23,8 @@ except ImportError:
     DEFAULT_WINDOW_TITLE = "RAG Content Scraper (Fallback)"
     DEFAULT_WINDOW_WIDTH = 850
     DEFAULT_WINDOW_HEIGHT = 650
-    STYLESHEET_PATH = "" # No stylesheet if config is missing
-    SEARCH_SOURCES_COUNT = 4 # Default if not in config
+    STYLESHEET_PATH = ""  # No stylesheet if config is missing
+    SEARCH_SOURCES_COUNT = 4  # Default if not in config
 
 
 class FetchWorker(QThread):
@@ -47,9 +47,9 @@ class FetchWorker(QThread):
             snippets = []
             if self.mode == "URL":
                 self.progress.emit(25, f"Fetching URL: {self.query}...")
-                from scraper.fetcher import fetch_url # Keep local import for clarity
-                from scraper.parser import extract_code # Keep local import for clarity
-                html = fetch_url(self.query) # Uses configured timeout via fetcher
+                from scraper.fetcher import fetch_url  # Keep local import for clarity
+                from scraper.parser import extract_code  # Keep local import for clarity
+                html = fetch_url(self.query)  # Uses configured timeout via fetcher
                 self.progress.emit(50, "Extracting code from URL...")
                 snippets = extract_code(html)
                 self.progress.emit(100, "URL processing complete.")
@@ -66,17 +66,17 @@ class FetchWorker(QThread):
                     # Then distribute (90-20)=70% over self.total_sources
                     if self.total_sources > 0:
                         current_progress = int(20 + (self.current_source_index / self.total_sources) * 70)
-                    else: # Should not happen in Search mode
+                    else:  # Should not happen in Search mode
                         current_progress = 20
                     self.progress.emit(current_progress, message)
-                    self.current_source_index += 1 # Increment when a source is processed
+                    self.current_source_index += 1  # Increment when a source is processed
 
                 self.progress.emit(20, f"Starting search for: {self.query}...")
                 # Pass the progress_callback to search_and_fetch
                 # search_and_fetch will call it after each source.
                 snippets = search_and_fetch(self.query, self.logger, progress_callback)
 
-            self.progress.emit(95, "Deduplicating snippets...") # Increased from 90
+            self.progress.emit(95, "Deduplicating snippets...")  # Increased from 90
             unique_snippets = list(dict.fromkeys(snippets))
             self.progress.emit(100, "Fetch complete.")
             self.finished.emit(unique_snippets, f"Found {len(unique_snippets)} unique snippets.")
@@ -99,7 +99,7 @@ class SaveWorker(QThread):
 
     def run(self):
         try:
-            save_snippets(self.snippets, self.directory) # Uses configured slug length via saver
+            save_snippets(self.snippets, self.directory)  # Uses configured slug length via saver
             self.finished.emit(f"Saved {len(self.snippets)} snippets to {self.directory}.")
         except Exception as e:
             self.logger.exception("Error saving snippets in SaveWorker")
@@ -110,9 +110,10 @@ class SaveWorker(QThread):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.logger = setup_logger() # Uses configured logger settings
+        self.logger = setup_logger()  # Uses configured logger settings
         self.setWindowTitle(DEFAULT_WINDOW_TITLE)
         self.resize(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT)
+        self.enhanced_snippet_data = []  # Store enhanced data for RAG export
         self._setup_ui()
         self.snippets = []
 
@@ -153,10 +154,21 @@ class MainWindow(QMainWindow):
         self.save_button.clicked.connect(self.on_save)
         self.save_button.setEnabled(False)
 
+        # Enhanced export options
+        self.export_format_combo = QComboBox()
+        self.export_format_combo.addItems(["Standard", "RAG-JSONL", "RAG-Markdown", "RAG-XML", "RAG-YAML"])
+
+        self.rag_export_button = QPushButton("Export for RAG")
+        self.rag_export_button.clicked.connect(self.on_rag_export)
+        self.rag_export_button.setEnabled(False)
+
         self.status_label = QLabel("Ready.")
         self.status_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
         bottom_layout.addWidget(self.save_button)
+        bottom_layout.addWidget(QLabel("Format:"))
+        bottom_layout.addWidget(self.export_format_combo)
+        bottom_layout.addWidget(self.rag_export_button)
         bottom_layout.addWidget(self.status_label, 1)
         layout.addLayout(bottom_layout)
 
@@ -165,10 +177,6 @@ class MainWindow(QMainWindow):
             self.url_input.setPlaceholderText("Enter URL here (e.g., https://...)")
         else:
             self.url_input.setPlaceholderText("Enter module name or search query (e.g., asyncio, pandas http client)")
-
-    # gui/main_window.py (Part 2 of 2)
-
-    # (Imports, FetchWorker, SaveWorker, and beginning of MainWindow class from Part 1 are assumed to be above this)
 
     def on_fetch(self):
         query = self.url_input.text().strip()
@@ -180,6 +188,7 @@ class MainWindow(QMainWindow):
 
         self.fetch_button.setEnabled(False)
         self.save_button.setEnabled(False)
+        self.rag_export_button.setEnabled(False)
         self.progress_bar.setVisible(True)
         self.progress_bar.setValue(0)
         self.status_label.setText(f"Initializing {mode} for: {query}...")
@@ -197,6 +206,11 @@ class MainWindow(QMainWindow):
 
     def handle_fetch_finished(self, snippets, status_message):
         self.snippets = snippets
+
+        # Try to get enhanced data from logger
+        if hasattr(self.logger, 'enhanced_snippet_data'):
+            self.enhanced_snippet_data = self.logger.enhanced_snippet_data
+
         display_text = "\n\n# -----\n\n".join(self.snippets) if self.snippets else "No code snippets found."
         self.snippets_edit.setPlainText(display_text)
         self.status_label.setText(status_message)
@@ -204,6 +218,7 @@ class MainWindow(QMainWindow):
         self.progress_bar.setVisible(False)
         if self.snippets:
             self.save_button.setEnabled(True)
+            self.rag_export_button.setEnabled(True)
 
     def handle_fetch_error(self, error_message):
         self.logger.error(f"GUI received fetch error summary: {error_message}")
@@ -212,6 +227,7 @@ class MainWindow(QMainWindow):
         self.fetch_button.setEnabled(True)
         self.progress_bar.setVisible(False)
         self.save_button.setEnabled(False)
+        self.rag_export_button.setEnabled(False)
 
     def on_save(self):
         if not self.snippets:
@@ -225,6 +241,7 @@ class MainWindow(QMainWindow):
 
         self.save_button.setEnabled(False)
         self.fetch_button.setEnabled(False)
+        self.rag_export_button.setEnabled(False)
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 0)  # Indeterminate progress
         self.status_label.setText(f"Saving {len(self.snippets)} snippets...")
@@ -238,6 +255,8 @@ class MainWindow(QMainWindow):
         self.status_label.setText(status_message)
         self.save_button.setEnabled(True)
         self.fetch_button.setEnabled(True)
+        if self.snippets:
+            self.rag_export_button.setEnabled(True)
         self.progress_bar.setVisible(False)
         self.progress_bar.setRange(0, 100)  # Reset for fetch
 
@@ -253,8 +272,72 @@ class MainWindow(QMainWindow):
         self.status_label.setText(f"Save Error ({error_type_for_status}). See log for details.")
         self.save_button.setEnabled(True)
         self.fetch_button.setEnabled(True)
+        if self.snippets:
+            self.rag_export_button.setEnabled(True)
         self.progress_bar.setVisible(False)
         self.progress_bar.setRange(0, 100)
+
+    def on_rag_export(self):
+        """Handle RAG export with enhanced formats."""
+        if not self.snippets:
+            self.status_label.setText("No snippets to export.")
+            return
+
+        directory = QFileDialog.getExistingDirectory(self, "Select Directory for RAG Export")
+        if not directory:
+            self.status_label.setText("Export cancelled.")
+            return
+
+        try:
+            from storage.rag_exporter import RAGExporter
+            from scraper.quality_filter import CodeQualityFilter
+
+            format_map = {
+                "RAG-JSONL": "jsonl",
+                "RAG-Markdown": "markdown",
+                "RAG-XML": "xml",
+                "RAG-YAML": "yaml"
+            }
+
+            selected_format = self.export_format_combo.currentText()
+
+            if selected_format == "Standard":
+                # Use original save method
+                self.on_save()
+                return
+
+            # Use enhanced data if available, otherwise create it
+            if hasattr(self, 'enhanced_snippet_data') and self.enhanced_snippet_data:
+                snippets_data = self.enhanced_snippet_data
+            else:
+                # Create enhanced data from basic snippets
+                quality_filter = CodeQualityFilter()
+                snippets_data = []
+                for snippet in self.snippets:
+                    result = quality_filter.score_snippet(snippet)
+                    snippets_data.append({
+                        'code': snippet,
+                        'score': result['score'],
+                        'metadata': result['metadata']
+                    })
+
+            exporter = RAGExporter()
+            query = self.url_input.text().strip() or "search_query"
+
+            output_file = exporter.export_for_rag(
+                snippets_data,
+                directory,
+                query,
+                format_map[selected_format]
+            )
+
+            self.status_label.setText(f"RAG export complete: {output_file}")
+
+        except ImportError:
+            self.status_label.setText("Enhanced export features not available.")
+        except Exception as e:
+            self.logger.error(f"RAG export error: {e}")
+            self.status_label.setText(f"RAG export failed: {str(e)}")
 
     def closeEvent(self, event):
         if hasattr(self, 'fetch_worker') and self.fetch_worker.isRunning():

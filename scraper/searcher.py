@@ -1,4 +1,4 @@
-# scraper/searcher.py (Part 1 of 2) - Max Power Edition!
+# scraper/searcher.py - Enhanced Max Power Edition!
 import os
 import re
 import requests
@@ -8,7 +8,16 @@ import ast
 import logging
 from .parser import _clean_snippet_text, extract_code as extract_code_from_html_markdown, extract_code_from_ipynb
 
-# Assuming extract_code_from_ipynb is added to parser
+# Enhanced features imports
+try:
+    from .quality_filter import CodeQualityFilter
+    from .additional_sources import search_additional_sources
+    from ..utils.deduplicator import SmartDeduplicator
+
+    ENHANCED_FEATURES_AVAILABLE = True
+except ImportError as e:
+    print(f"Enhanced features not available: {e}")
+    ENHANCED_FEATURES_AVAILABLE = False
 
 try:
     from config import (
@@ -30,9 +39,9 @@ except ImportError:
     logging.critical(
         "CRITICAL: config.py not found or essential settings are missing. Scraper may not function correctly. Using emergency fallbacks.")
     # Emergency fallbacks - these are conservative to avoid overwhelming APIs if config is gone
-    STDLIB_DOCS_BASE_URL = "[https://docs.python.org/3/library/](https://docs.python.org/3/library/){module_name}.html"
+    STDLIB_DOCS_BASE_URL = "https://docs.python.org/3/library/{module_name}.html"
     STDLIB_DOCS_TIMEOUT = 10
-    STACKEXCHANGE_API_BASE_URL = "[https://api.stackexchange.com/2.3](https://api.stackexchange.com/2.3)"
+    STACKEXCHANGE_API_BASE_URL = "https://api.stackexchange.com/2.3"
     STACKOVERFLOW_SITE_NAME = "stackoverflow"
     STACKOVERFLOW_SEARCH_ENDPOINT = "/search/advanced"
     STACKOVERFLOW_ANSWERS_ENDPOINT = "/questions/{qid}/answers"
@@ -104,16 +113,13 @@ def fetch_stdlib_docs(module_name, logger):
     url = STDLIB_DOCS_BASE_URL.format(module_name=module_name)
     headers = {"User-Agent": USER_AGENT}
     try:
-        # Assuming fetch_url is available, or use requests.get directly
-        # from .fetcher import fetch_url # if it's safe to import here
         resp = requests.get(url, timeout=STDLIB_DOCS_TIMEOUT, headers=headers)
         resp.raise_for_status()
         html_content = resp.text
     except requests.RequestException as e:
         logger.error(f"Failed to fetch stdlib docs for {module_name}: {e}")
-        return []  # Return empty list for snippets
+        return []
 
-    # Using the robust extract_code_from_html_markdown for consistency
     snippets = extract_code_from_html_markdown(html_content)
     logger.info(f"Found {len(snippets)} potential snippets from stdlib docs for {module_name}.")
     return snippets
@@ -135,7 +141,7 @@ def fetch_stackoverflow_snippets(query, logger, top_n=None):
         resp.raise_for_status()
     except requests.RequestException as e:
         logger.error(f"Failed to fetch Stack Overflow search results for '{query}': {e}")
-        return [], []  # snippets, discovered_tags
+        return [], []
 
     data = resp.json()
     snippets = []
@@ -148,7 +154,7 @@ def fetch_stackoverflow_snippets(query, logger, top_n=None):
         logger.debug(f"Processing SO Question {item_idx + 1}/{len(items)}: {item.get('title', 'N/A')}")
         if STACKOVERFLOW_CRAWL_EXPLORE_TAGS and CRAWLER_ENABLED:
             for tag in item.get("tags", []):
-                if tag.lower() != query.lower() and len(tag) > 1:  # Avoid self-query and very short tags
+                if tag.lower() != query.lower() and len(tag) > 1:
                     discovered_tags.add(tag)
 
         if item.get("body"):
@@ -239,10 +245,8 @@ def fetch_github_readme_snippets(query, logger, max_repos=None, snippets_per_rep
         logger.error(f"Unexpected error during GitHub README search for '{query}': {e}", exc_info=True)
 
     logger.info(f"Found {len(snippets)} potential snippets from GitHub READMEs for {query}.")
-    return snippets  # No new terms discovered from READMEs in this design
+    return snippets
 
-
-# scraper/searcher.py (Part 2 of 2) - Max Power Edition!
 
 def _parse_requirements_txt(content, logger):
     """Rudimentary parsing of requirements.txt content."""
@@ -253,18 +257,14 @@ def _parse_requirements_txt(content, logger):
         lines = content.splitlines()
         for line in lines:
             line = line.strip()
-            # Remove comments
             if '#' in line:
                 line = line.split('#', 1)[0].strip()
-            # Basic handling for specifiers, take the package name part
-            # Handles common cases like library_name==1.0, library_name>=1.0, library_name
-            if not line or line.startswith('-'):  # Skip empty lines or options
+            if not line or line.startswith('-'):
                 continue
             match = re.match(r"^[a-zA-Z0-9_.-]+", line)
             if match:
                 dep_name = match.group(0)
-                # Basic filter for relevance (e.g. not too short, not a common word if desired)
-                if len(dep_name) > 2:  # Arbitrary minimum length
+                if len(dep_name) > 2:
                     dependencies.add(dep_name)
     except Exception as e:
         logger.warning(f"Error parsing requirements.txt content: {e}")
@@ -309,11 +309,10 @@ def fetch_github_file_snippets(query, logger, max_repos=None, files_per_repo_tar
             logger.info(
                 f"Processing repo {repo_count + 1}/{actual_max_repos}: {repo.full_name} (Stars: {repo.stargazers_count})")
             try:
-                # Try to find and parse requirements.txt for dependency crawling
                 if GITHUB_CRAWL_PARSE_DEPENDENCIES and CRAWLER_ENABLED:
                     try:
                         req_file_content = repo.get_contents("requirements.txt")
-                        if req_file_content and not isinstance(req_file_content, list):  # Ensure it's a file
+                        if req_file_content and not isinstance(req_file_content, list):
                             req_text = req_file_content.decoded_content.decode("utf-8", errors="ignore")
                             deps = _parse_requirements_txt(req_text, logger)
                             if deps:
@@ -342,7 +341,7 @@ def fetch_github_file_snippets(query, logger, max_repos=None, files_per_repo_tar
                 queue = [("", root_contents)]
                 visited_dirs = set()
                 MAX_DIRS_TO_SCAN_PER_REPO = 40
-                MAX_FILES_TO_CONSIDER_PER_REPO = 250  # This is candidate_search_limit_per_repo
+                MAX_FILES_TO_CONSIDER_PER_REPO = 250
                 MAX_SCAN_DEPTH = 3
                 dirs_scanned = 0
                 files_considered = 0
@@ -443,11 +442,11 @@ def fetch_github_file_snippets(query, logger, max_repos=None, files_per_repo_tar
 
                         file_specific_snippets = []
                         if file_info['is_notebook']:
-                            notebook_codes = extract_code_from_ipynb(raw_code, logger)  # Ensure this is implemented
+                            notebook_codes = extract_code_from_ipynb(raw_code, logger)
                             for code_cell in notebook_codes:
                                 cleaned_cell = _clean_snippet_text(code_cell)
                                 if cleaned_cell: file_specific_snippets.append(cleaned_cell)
-                        else:  # .py file
+                        else:
                             ast_constructs = _extract_python_constructs(raw_code, logger)
                             if ast_constructs:
                                 for construct_code in ast_constructs:
@@ -506,6 +505,10 @@ def fetch_github_file_snippets(query, logger, max_repos=None, files_per_repo_tar
 
 
 def search_and_fetch(query, logger, progress_callback=None):
+    """Enhanced search with quality filtering and smart deduplication."""
+
+    global ENHANCED_FEATURES_AVAILABLE
+
     if logger is None:
         logger = logging.getLogger(USER_AGENT)
         if not logger.handlers:
@@ -513,64 +516,176 @@ def search_and_fetch(query, logger, progress_callback=None):
             ch.setLevel(logging.INFO)
             logger.addHandler(ch)
             logger.setLevel(logging.INFO)
-            logger.warning("Logger not provided to search_and_fetch, using basic fallback.")
+
+    # Initialize enhanced components if available
+    enhanced_features_working = ENHANCED_FEATURES_AVAILABLE
+    quality_filter = None
+    deduplicator = None
+
+    if ENHANCED_FEATURES_AVAILABLE:
+        try:
+            quality_filter = CodeQualityFilter()
+            deduplicator = SmartDeduplicator()
+        except Exception as e:
+            logger.warning(f"Could not initialize enhanced features: {e}")
+            enhanced_features_working = False
 
     all_snippets = []
-    discovered_queries = set()  # Use a set to avoid duplicate discovered terms internally
-    total_configured_steps = 4  # StdLib, SO, GH READMEs, GH Files
+    all_sources = []
+    discovered_queries = set()
+
+    # Calculate total steps for progress
+    total_configured_steps = 4  # Your existing 4 sources
+
+    # Check if additional sources are enabled
+    additional_sources_enabled = False
+    try:
+        from config import ADDITIONAL_SOURCES_ENABLED
+        additional_sources_enabled = ADDITIONAL_SOURCES_ENABLED
+    except ImportError:
+        additional_sources_enabled = False
+
+    if enhanced_features_working and additional_sources_enabled:
+        total_configured_steps += 1  # Add step for additional sources
+
     current_step_for_progress = 0
 
     def _do_progress_update(source_name):
         nonlocal current_step_for_progress
         current_step_for_progress += 1
         if progress_callback:
-            # Percentage here reflects progress for *this specific query's sources*
-            percentage = int((current_step_for_progress / total_configured_steps) * 100)  # Max 100 for this sub-task
+            percentage = int((current_step_for_progress / total_configured_steps) * 85)  # Leave 15% for post-processing
             progress_callback(f"Query '{query}': Fetching from {source_name}...", percentage)
 
-    # --- Python Standard Library ---
+    # === EXISTING SOURCES ===
+
+    # Python Standard Library
     _do_progress_update("Python Standard Library")
     try:
         stdlib_snippets = fetch_stdlib_docs(query, logger)
         all_snippets.extend(stdlib_snippets)
-        # No new queries typically discovered from stdlib docs in this design
+        all_sources.extend(['stdlib'] * len(stdlib_snippets))
     except Exception as e:
         logger.error(f"Error in fetch_stdlib_docs for '{query}': {e}", exc_info=True)
 
-    # --- Stack Overflow ---
+    # Stack Overflow
     _do_progress_update("Stack Overflow")
     try:
         so_snippets, so_tags = fetch_stackoverflow_snippets(query, logger)
         all_snippets.extend(so_snippets)
+        all_sources.extend(['stackoverflow'] * len(so_snippets))
         if STACKOVERFLOW_CRAWL_EXPLORE_TAGS and CRAWLER_ENABLED:
             discovered_queries.update(so_tags)
     except Exception as e:
         logger.error(f"Error in fetch_stackoverflow_snippets for '{query}': {e}", exc_info=True)
 
-    # --- GitHub READMEs ---
+    # GitHub READMEs
     _do_progress_update("GitHub READMEs")
     try:
         readme_snippets = fetch_github_readme_snippets(query, logger)
         all_snippets.extend(readme_snippets)
-        # No new queries typically discovered from READMEs in this design
+        all_sources.extend(['github_readme'] * len(readme_snippets))
     except Exception as e:
         logger.error(f"Error in fetch_github_readme_snippets for '{query}': {e}", exc_info=True)
 
-    # --- GitHub Files ---
+    # GitHub Files
     _do_progress_update("GitHub Files")
     try:
         gh_file_snippets, gh_deps = fetch_github_file_snippets(query, logger)
         all_snippets.extend(gh_file_snippets)
+        all_sources.extend(['github_files'] * len(gh_file_snippets))
         if GITHUB_CRAWL_PARSE_DEPENDENCIES and CRAWLER_ENABLED:
             discovered_queries.update(gh_deps)
     except Exception as e:
         logger.error(f"Error in fetch_github_file_snippets for '{query}': {e}", exc_info=True)
 
-    logger.info(f"TOTAL {len(all_snippets)} snippets gathered for query '{query}' before deduplication.")
-    logger.info(f"Discovered {len(discovered_queries)} potential new search terms from query '{query}'.")
+    # === NEW ENHANCED SOURCES ===
+    if enhanced_features_working and additional_sources_enabled:
+        _do_progress_update("Additional Sources")
+        try:
+            additional_snippets = search_additional_sources(query, logger)
+            all_snippets.extend(additional_snippets)
+            all_sources.extend(['additional'] * len(additional_snippets))
+        except Exception as e:
+            logger.error(f"Error in additional sources for '{query}': {e}", exc_info=True)
 
-    # Deduplicate snippets for this query before returning
-    unique_snippets_for_query = list(dict.fromkeys(all_snippets))
+    logger.info(f"RAW TOTAL: {len(all_snippets)} snippets gathered for query '{query}' before processing.")
 
-    return unique_snippets_for_query, list(discovered_queries)
-# --- End of Part 2 ---
+    # === ENHANCED PROCESSING ===
+    if enhanced_features_working and quality_filter and deduplicator:
+        # Apply quality filtering
+        if progress_callback:
+            progress_callback("Applying quality filters...", 87)
+
+        # Check if quality filtering is enabled
+        quality_filter_enabled = True
+        try:
+            from config import QUALITY_FILTER_ENABLED
+            quality_filter_enabled = QUALITY_FILTER_ENABLED
+        except ImportError:
+            quality_filter_enabled = True
+
+        if quality_filter_enabled:
+            try:
+                scored_snippets = quality_filter.filter_snippets(all_snippets, all_sources)
+                logger.info(f"Quality filtering: {len(all_snippets)} -> {len(scored_snippets)} snippets")
+            except Exception as e:
+                logger.error(f"Quality filtering failed: {e}")
+                # Fallback without scoring
+                scored_snippets = [
+                    {'code': snippet, 'score': 5, 'metadata': {'source': src}}
+                    for snippet, src in zip(all_snippets, all_sources)
+                ]
+        else:
+            # Convert to expected format without scoring
+            scored_snippets = [
+                {'code': snippet, 'score': 5, 'metadata': {'source': src}}
+                for snippet, src in zip(all_snippets, all_sources)
+            ]
+
+        # Apply smart deduplication
+        if progress_callback:
+            progress_callback("Removing duplicates...", 92)
+
+        # Check if smart deduplication is enabled
+        smart_dedup_enabled = True
+        try:
+            from config import SMART_DEDUPLICATION_ENABLED
+            smart_dedup_enabled = SMART_DEDUPLICATION_ENABLED
+        except ImportError:
+            smart_dedup_enabled = True
+
+        if smart_dedup_enabled:
+            try:
+                final_snippets_data = []
+                for snippet_data in scored_snippets:
+                    if deduplicator.add_snippet(snippet_data['code'], snippet_data.get('metadata', {})):
+                        final_snippets_data.append(snippet_data)
+
+                logger.info(f"Smart deduplication: {len(scored_snippets)} -> {len(final_snippets_data)} snippets")
+                dedup_stats = deduplicator.get_stats()
+                logger.info(f"Deduplication stats: {dedup_stats}")
+            except Exception as e:
+                logger.error(f"Smart deduplication failed: {e}")
+                final_snippets_data = scored_snippets
+        else:
+            final_snippets_data = scored_snippets
+
+        # Extract just the code for backward compatibility
+        unique_snippets_for_query = [item['code'] for item in final_snippets_data]
+
+        # Store the enhanced data for potential RAG export
+        logger.enhanced_snippet_data = final_snippets_data
+
+    else:
+        # Fallback to original simple deduplication
+        unique_snippets_for_query = list(dict.fromkeys(all_snippets))
+        logger.info(f"Basic deduplication: {len(all_snippets)} -> {len(unique_snippets_for_query)} snippets")
+
+    if progress_callback:
+        progress_callback("Search complete!", 100)
+
+    logger.info(f"FINAL: {len(unique_snippets_for_query)} unique snippets for query '{query}'.")
+    logger.info(f"Discovered {len(discovered_queries)} potential new search terms.")
+
+    return unique_snippets_for_query

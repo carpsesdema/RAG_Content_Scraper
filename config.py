@@ -77,3 +77,81 @@ SEARCH_SOURCES_COUNT = 4 # Stays the same for now unless we add a new *type* of 
 
 # --- Storage Settings ---
 DEFAULT_SNIPPET_FILENAME_SLUG_MAX_LENGTH = 60 # Slightly longer for potentially more varied snippets
+# ADD THESE LINES TO YOUR EXISTING config.py
+
+# --- Quality Filtering Settings ---
+QUALITY_FILTER_ENABLED = True
+MIN_SNIPPET_QUALITY_SCORE = 3  # Minimum score to include snippet
+MIN_SNIPPET_LINES = 3
+MAX_SNIPPET_LINES = 150
+PREFER_DOCUMENTED_CODE = True  # Give bonus to code with docstrings
+
+# --- Deduplication Settings ---
+SMART_DEDUPLICATION_ENABLED = True
+SIMILARITY_THRESHOLD = 0.85  # How similar snippets need to be to be considered duplicates
+SEMANTIC_DEDUPLICATION = False  # Enable when you have sentence-transformers installed
+
+# --- Additional Sources Settings ---
+ADDITIONAL_SOURCES_ENABLED = True
+REAL_PYTHON_ENABLED = True
+PYPI_EXAMPLES_ENABLED = True
+PYTHON_ORG_ENABLED = True
+AWESOME_PYTHON_ENABLED = False  # Enable when implemented
+
+# Real Python settings
+REAL_PYTHON_MAX_ARTICLES = 3
+REAL_PYTHON_TIMEOUT = 20
+
+# PyPI settings
+PYPI_CHECK_ENABLED = True  # Check if query is a package name
+PYPI_FETCH_DOCS = True     # Try to fetch documentation links
+
+# --- RAG Export Settings ---
+RAG_EXPORT_ENABLED = True
+DEFAULT_RAG_FORMAT = 'jsonl'  # 'jsonl', 'markdown', 'xml', 'yaml'
+RAG_INCLUDE_METADATA = True
+RAG_INCLUDE_QUALITY_SCORES = True
+RAG_INCLUDE_TAGS = True
+
+# --- Enhanced Crawling Settings ---
+INTELLIGENT_QUERY_EXPANSION = True  # Generate related queries automatically
+MAX_QUERY_EXPANSION_DEPTH = 2       # How many levels of query expansion
+QUERY_EXPANSION_MIN_SCORE = 5       # Minimum quality score to use for expansion
+
+# Enhanced GitHub settings
+GITHUB_SEARCH_NOTEBOOKS = True      # Include Jupyter notebooks
+GITHUB_PREFER_EXAMPLES = True       # Prioritize example/demo directories
+GITHUB_SKIP_TESTS = False          # Whether to skip test files
+GITHUB_INCLUDE_SETUP_PY = True     # Include setup.py files for package structure
+
+# Enhanced Stack Overflow settings
+STACKOVERFLOW_PREFER_ACCEPTED = True    # Prioritize accepted answers
+STACKOVERFLOW_MIN_SCORE = 1            # Minimum answer score
+STACKOVERFLOW_INCLUDE_QUESTIONS = True  # Include question bodies, not just answers
+
+# --- Performance Settings ---
+PARALLEL_PROCESSING = True          # Enable parallel processing where possible
+MAX_WORKER_THREADS = 4             # Number of worker threads for parallel operations
+REQUEST_DELAY = 0.5                # Delay between requests to be respectful
+BATCH_SIZE = 10                    # Process snippets in batches
+
+# --- Content Processing Settings ---
+EXTRACT_IMPORTS = True             # Extract and analyze import statements
+EXTRACT_FUNCTION_SIGNATURES = True # Extract just function signatures for quick reference
+EXTRACT_CLASS_HIERARCHIES = True  # Map class inheritance
+INCLUDE_INLINE_COMMENTS = False   # Whether to preserve inline comments
+
+# --- Storage Enhancement Settings ---
+CREATE_INDEX_FILE = True           # Create searchable index of all snippets
+COMPRESS_OUTPUT = False            # Compress output files (requires gzip)
+BACKUP_EXISTING = True            # Backup existing files before overwriting
+
+# --- Validation Settings ---
+VALIDATE_PYTHON_SYNTAX = True     # Check if Python code is syntactically valid
+SKIP_INVALID_SYNTAX = False       # Skip or include syntactically invalid code
+SYNTAX_ERROR_AS_TEXT = True       # Include syntax errors as text snippets
+
+# --- Experimental Features ---
+AUTO_GENERATE_SUMMARIES = False    # Generate summaries of code snippets (needs AI)
+EXTRACT_CODE_PATTERNS = True      # Identify common coding patterns
+CLUSTER_SIMILAR_SNIPPETS = False  # Group similar snippets together
