@@ -1,7 +1,7 @@
-# config.py
+# config.py - Updated with Pinescript Support
 """
 Centralized configuration for the RAG Content Scraper application.
-Enhanced for freelance Python development and dual LLM systems.
+Enhanced for freelance Python development, dual LLM systems, and Pinescript trading.
 """
 
 # --- General Application Settings ---
@@ -13,271 +13,303 @@ LOG_LEVEL_FILE = "DEBUG"
 
 # --- GUI Settings ---
 STYLESHEET_PATH = "gui/styles.qss"
-DEFAULT_WINDOW_TITLE = "RAG Content Scraper - Max Power Edition" # Fun title!
+DEFAULT_WINDOW_TITLE = "RAG Content Scraper - Max Power Edition with Pinescript" # Updated title!
 DEFAULT_WINDOW_WIDTH = 900
 DEFAULT_WINDOW_HEIGHT = 700
 
 # --- Fetcher Settings ---
-DEFAULT_REQUEST_TIMEOUT = 15  # Increased default timeout slightly
-USER_AGENT = f"{APP_NAME}/1.1-greedy" # Indicate version/mode
+DEFAULT_REQUEST_TIMEOUT = 15
+USER_AGENT = f"{APP_NAME}/1.2-pinescript"  # Updated version
 
-# --- Crawler Settings ---
-CRAWLER_ENABLED = True # Global toggle for new crawling features
-MAX_CRAWL_QUERIES = 10 # Max new top-level search terms to generate from one initial query (excluding initial query)
-MAX_CRAWL_QUEUE_SIZE = 50 # Absolute max size of the crawl queue to prevent runaway crawls
+# --- Content Type Settings ---
+CONTENT_TYPES = {
+    'python': True,      # Original Python support
+    'pinescript': True,  # NEW: Pinescript support
+    'javascript': False, # Future expansion
+    'sql': False,        # Future expansion
+    'bash': False        # Future expansion
+}
 
-# GitHub Crawling
-GITHUB_CRAWL_PARSE_DEPENDENCIES = True
-# Stack Overflow Crawling
-STACKOVERFLOW_CRAWL_EXPLORE_TAGS = True
-# Documentation Site Crawling (for URL mode or discovered doc links)
-DOCS_CRAWL_ENABLED = True
-DOCS_CRAWL_MAX_DEPTH_PER_URL = 2 # How many link "hops" to make from an initial doc URL
-DOCS_CRAWL_RESPECT_ROBOTS_TXT = True
-# Allowed domains for DOCS_CRAWL - if empty, will only crawl same domain as entry URL
-# Example: DOCS_CRAWL_ALLOWED_DOMAINS = ["docs.python.org", "realpython.com"]
-DOCS_CRAWL_ALLOWED_DOMAINS = []
+# Default content type (can be 'python', 'pinescript', or 'auto')
+DEFAULT_CONTENT_TYPE = 'auto'  # Auto-detect based on query
 
-# --- Documentation Scraping Settings ---
-DOCUMENTATION_SOURCES_ENABLED = True
-DOC_SCRAPING_TIMEOUT = 20
-DOC_MAX_PAGES_PER_SITE = 5
-DOC_MAX_SNIPPETS_PER_PAGE = 10
+# --- Pinescript-Specific Settings ---
+PINESCRIPT_ENABLED = True
+PINESCRIPT_SOURCES_ENABLED = True
+TRADINGVIEW_SCRAPING_ENABLED = True
+PINESCRIPT_DOCUMENTATION_ENABLED = True
+PINESCRIPT_GITHUB_ENABLED = True
 
-# --- Searcher Settings ---
+# Pinescript source priorities
+PINESCRIPT_SOURCE_WEIGHTS = {
+    'builtin_examples': 2.0,      # High priority for built-in examples
+    'documentation': 1.8,         # Official docs
+    'tradingview_library': 2.5,   # Highest priority for TradingView public scripts
+    'github_pinescript': 1.5,     # GitHub repositories
+    'educational': 1.3            # Educational content
+}
 
-# Python Standard Library Docs
-STDLIB_DOCS_BASE_URL = "https://docs.python.org/3/library/{module_name}.html"
-STDLIB_DOCS_TIMEOUT = 15  # Increased
+# TradingView settings
+TRADINGVIEW_MAX_SCRIPTS = 10
+TRADINGVIEW_TIMEOUT = 20
+TRADINGVIEW_RESPECT_RATE_LIMITS = True
+TRADINGVIEW_DELAY_BETWEEN_REQUESTS = 2.0
 
-# Stack Overflow API
-STACKEXCHANGE_API_BASE_URL = "https://api.stackexchange.com/2.3"
-STACKOVERFLOW_SITE_NAME = "stackoverflow"
-STACKOVERFLOW_SEARCH_ENDPOINT = "/search/advanced"
-STACKOVERFLOW_ANSWERS_ENDPOINT = "/questions/{qid}/answers"
+# Pinescript categorization
+PINESCRIPT_CATEGORIZATION_ENABLED = True
+PINESCRIPT_COMPLEXITY_SCORING = True
+TRADING_VALUE_SCORING = True
 
-# MODIFIED: Increased Stack Overflow results
-STACKOVERFLOW_SEARCH_MAX_RESULTS = 15         # Was 5, let's get more questions
-STACKOVERFLOW_SEARCH_TIMEOUT = 20             # Was 15
-STACKOVERFLOW_ANSWERS_MAX_PER_QUESTION = 5    # Was 3, more answers per question
-STACKOVERFLOW_ANSWERS_TIMEOUT = 15            # Was 10
+# --- Language Detection Settings ---
+LANGUAGE_DETECTION_ENABLED = True
+AUTO_DETECT_CONTENT_TYPE = True
 
-# GitHub API
-# MODIFIED: Increased GitHub README processing
-GITHUB_README_MAX_REPOS = 7                   # Was 3, more repos for READMEs
-GITHUB_README_SNIPPETS_PER_REPO = 10          # Was 5, more snippets per README
-
-# MODIFIED: Significantly Increased GitHub File processing
-GITHUB_FILES_MAX_REPOS = 10                   # Was 2, MANY more repos for files
-GITHUB_FILES_PER_REPO_TARGET = 15             # Was 3, aim for more constructs per repo
-GITHUB_FILES_CANDIDATE_MULTIPLIER = 3         # Was 2, fetch even more candidates to choose from
-GITHUB_MAX_FILE_SIZE_KB = 750                 # Was 500, allow slightly larger files
-GITHUB_FILE_DOWNLOAD_TIMEOUT = 20             # Was 15
-
-# Option for fetch_github_file_snippets: If a .py file is small and no AST constructs are found,
-# should we extract the whole file?
-EXTRACT_WHOLE_SMALL_PY_FILES = True
-MAX_LINES_FOR_WHOLE_FILE_EXTRACTION = 150 # If file has fewer lines than this, and EXTRACT_WHOLE_SMALL_PY_FILES is True
-
-SEARCH_SOURCES_COUNT = 5 # Updated to include documentation sources
-
-# --- Storage Settings ---
-DEFAULT_SNIPPET_FILENAME_SLUG_MAX_LENGTH = 60 # Slightly longer for potentially more varied snippets
-
-# --- Enhanced Quality Filtering Settings ---
-QUALITY_FILTER_ENABLED = True
-MIN_SNIPPET_QUALITY_SCORE = 3  # Minimum score to include snippet
-MIN_SNIPPET_LINES = 3
-MAX_SNIPPET_LINES = 150
-PREFER_DOCUMENTED_CODE = True  # Give bonus to code with docstrings
-
-# --- Smart Deduplication Settings ---
-SMART_DEDUPLICATION_ENABLED = True
-SIMILARITY_THRESHOLD = 0.85  # How similar snippets need to be to be considered duplicates
-SEMANTIC_DEDUPLICATION = False  # Enable when you have sentence-transformers installed
+# Keywords for content type detection
+CONTENT_TYPE_KEYWORDS = {
+    'python': [
+        'import ', 'from ', 'def ', 'class ', 'if __name__', 'print(',
+        'pandas', 'numpy', 'fastapi', 'django', 'flask', 'pytest'
+    ],
+    'pinescript': [
+        '//@version', 'indicator(', 'strategy(', 'library(', 'plot(',
+        'ta.', 'strategy.entry', 'alertcondition', 'input.', 'close', 'high', 'low',
+        'sma', 'ema', 'rsi', 'macd', 'bollinger'
+    ]
+}
 
 # --- Enhanced Source Settings ---
 ADDITIONAL_SOURCES_ENABLED = True
-FREELANCER_SOURCES_ENABLED = True
-REAL_PYTHON_ENABLED = True
-PYPI_EXAMPLES_ENABLED = True
-PYTHON_ORG_ENABLED = True
-AWESOME_PYTHON_ENABLED = False  # Enable when implemented
+FREELANCER_SOURCES_ENABLED = True  # Python freelance sources
+PINESCRIPT_SOURCES_ENABLED = True  # NEW: Pinescript sources
 
-# Real Python settings
-REAL_PYTHON_MAX_ARTICLES = 3
-REAL_PYTHON_TIMEOUT = 20
+# Updated search sources count to include Pinescript
+SEARCH_SOURCES_COUNT = 6  # stdlib, stackoverflow, github_readme, github_files, additional/freelancer, pinescript
 
-# PyPI settings
-PYPI_CHECK_ENABLED = True  # Check if query is a package name
-PYPI_FETCH_DOCS = True     # Try to fetch documentation links
-
-# --- Freelance-Specific Settings ---
-FREELANCE_MODE = True
-PRIORITIZE_PRACTICAL_EXAMPLES = True
-INCLUDE_CLIENT_INTEGRATION_PATTERNS = True
-FOCUS_ON_DELIVERABLE_CODE = True
-
-# Content boosting for freelance relevance
-BOOST_FASTAPI_CONTENT = 2.0
-BOOST_TESTING_PATTERNS = 1.5
-BOOST_DEPLOYMENT_EXAMPLES = 2.0
-BOOST_CLIENT_INTEGRATIONS = 2.5
-BOOST_DATA_PROCESSING = 1.8
-
-# --- Code Categorization Settings ---
-CODE_CATEGORIZATION_ENABLED = True
-GENERATE_RELATED_QUERIES = True
-FREELANCE_VALUE_SCORING = True
-AUTO_GENERATE_TAGS = True
-
-# --- Embedding RAG Export Settings ---
-EMBEDDING_RAG_EXPORT_ENABLED = True
-DUAL_LLM_EXPORT = True
-RAG_EXPORT_ENABLED = True
-DEFAULT_RAG_FORMAT = 'jsonl'  # 'jsonl', 'markdown', 'xml', 'yaml'
-RAG_INCLUDE_METADATA = True
-RAG_INCLUDE_QUALITY_SCORES = True
-RAG_INCLUDE_TAGS = True
-
-# Embedding optimization
-MAX_EMBEDDING_CHUNK_SIZE = 1000
-EMBEDDING_OVERLAP_SIZE = 100
-MIN_EMBEDDING_CHUNK_SIZE = 50
-GENERATE_IMPLEMENTATION_TIPS = True
-IDENTIFY_COMMON_PITFALLS = True
-SUGGEST_RELATED_CONCEPTS = True
-
-# --- Performance & Rate Limiting ---
-PARALLEL_SOURCE_FETCHING = True
-CACHE_EMBEDDINGS = True
-INCREMENTAL_RAG_UPDATES = True
-SMART_RATE_LIMITING = True
-REQUEST_DELAY_SECONDS = 0.5
-MAX_WORKER_THREADS = 4
-BATCH_SIZE = 10
-
-# --- Context-Aware Search ---
-CONTEXT_AWARE_SEARCH = True
-QUERY_INTENT_DETECTION = True
-PRESERVE_CHAT_CONTEXT = True
-INTELLIGENT_QUERY_EXPANSION = True
-MAX_QUERY_EXPANSION_DEPTH = 2
-QUERY_EXPANSION_MIN_SCORE = 5
-
-# --- Enhanced GitHub Settings ---
-GITHUB_SEARCH_NOTEBOOKS = True      # Include Jupyter notebooks
-GITHUB_PREFER_EXAMPLES = True       # Prioritize example/demo directories
-GITHUB_SKIP_TESTS = False          # Whether to skip test files
-GITHUB_INCLUDE_SETUP_PY = True     # Include setup.py files for package structure
-
-# --- Enhanced Stack Overflow Settings ---
-STACKOVERFLOW_PREFER_ACCEPTED = True    # Prioritize accepted answers
-STACKOVERFLOW_MIN_SCORE = 1            # Minimum answer score
-STACKOVERFLOW_INCLUDE_QUESTIONS = True  # Include question bodies, not just answers
-
-# --- Freelance Project Types Priority ---
-FREELANCE_PROJECT_TYPES = [
-    'web_apis', 'data_processing', 'automation_scripts',
-    'integrations', 'dashboards', 'scrapers', 'cli_tools',
-    'payment_systems', 'authentication', 'deployment',
-    'testing_frameworks', 'monitoring', 'ci_cd'
-]
-
-# --- High-Value Freelance Keywords ---
-HIGH_VALUE_FREELANCE_KEYWORDS = [
-    'fastapi', 'django', 'flask', 'stripe', 'twilio', 'sendgrid',
-    'aws', 'docker', 'kubernetes', 'pytest', 'selenium', 'pandas',
-    'oauth', 'jwt', 'rest', 'graphql', 'postgresql', 'redis',
-    'celery', 'nginx', 'gunicorn', 'uvicorn'
-]
-
-# --- Content Processing Settings ---
-EXTRACT_IMPORTS = True             # Extract and analyze import statements
-EXTRACT_FUNCTION_SIGNATURES = True # Extract just function signatures for quick reference
-EXTRACT_CLASS_HIERARCHIES = True  # Map class inheritance
-INCLUDE_INLINE_COMMENTS = False   # Whether to preserve inline comments
-ANALYZE_CODE_COMPLEXITY = True    # Analyze cyclomatic complexity
-DETECT_CODE_PATTERNS = True       # Detect common coding patterns
-
-# --- Storage Enhancement Settings ---
-CREATE_INDEX_FILE = True           # Create searchable index of all snippets
-COMPRESS_OUTPUT = False            # Compress output files (requires gzip)
-BACKUP_EXISTING = True            # Backup existing files before overwriting
-CREATE_METADATA_FILES = True      # Create separate metadata files
-STORE_ORIGINAL_SOURCES = True     # Keep track of original source URLs
-
-# --- Validation Settings ---
-VALIDATE_PYTHON_SYNTAX = True     # Check if Python code is syntactically valid
-SKIP_INVALID_SYNTAX = False       # Skip or include syntactically invalid code
-SYNTAX_ERROR_AS_TEXT = True       # Include syntax errors as text snippets
-VALIDATE_IMPORTS = True           # Check if imported modules exist
-
-# --- Export Format Preferences ---
-DEFAULT_DUAL_LLM_FORMAT = True
-INCLUDE_IMPLEMENTATION_GUIDANCE = True
-GENERATE_QUERY_SUGGESTIONS = True
-CREATE_CROSS_REFERENCE_INDEX = True
-EXPORT_SEPARATE_CHAT_CODE_FILES = True
-
-# --- Experimental Features ---
-AUTO_GENERATE_SUMMARIES = False    # Generate summaries of code snippets (needs AI)
-EXTRACT_CODE_PATTERNS = True      # Identify common coding patterns
-CLUSTER_SIMILAR_SNIPPETS = False  # Group similar snippets together
-SEMANTIC_SEARCH_ENHANCEMENT = False # Enable semantic similarity matching
-AUTO_CATEGORIZATION = True        # Automatically categorize snippets
-
-# --- Development and Debug Settings ---
-DEBUG_MODE = False
-VERBOSE_LOGGING = False
-SAVE_RAW_RESPONSES = False  # Save raw API responses for debugging
-PROFILE_PERFORMANCE = False # Profile function execution times
-
-# --- Integration Settings ---
-ENABLE_WEBHOOKS = False           # Enable webhook notifications
-WEBHOOK_URL = ""                  # URL to send webhook notifications
-ENABLE_API_SERVER = False        # Enable built-in API server
-API_SERVER_PORT = 8080           # Port for API server
-
-# --- Query Templates for Enhanced LLM Integration ---
-QUERY_TEMPLATES = {
-    'api_request': 'Show me {framework} examples for {use_case} with error handling and validation',
-    'data_task': 'Find {library} examples for {task} with performance considerations',
-    'integration': 'Get {service} integration examples with authentication and error handling',
-    'testing': 'Show me {framework} testing patterns for {component} with fixtures and mocks',
-    'deployment': 'Find {platform} deployment examples for {app_type} with best practices',
-    'automation': 'Get {tool} automation scripts for {task} with error handling'
-}
-
-# --- Freelance Client Value Indicators ---
-CLIENT_VALUE_INDICATORS = {
-    'high_value': {
-        'payment_processing': ['stripe', 'paypal', 'square', 'braintree'],
-        'communication': ['twilio', 'sendgrid', 'mailgun', 'slack'],
-        'cloud_services': ['aws', 'azure', 'gcp', 'digitalocean'],
-        'ecommerce': ['shopify', 'woocommerce', 'magento'],
-        'analytics': ['google_analytics', 'mixpanel', 'amplitude']
-    },
-    'medium_value': {
-        'automation': ['selenium', 'beautifulsoup', 'scrapy'],
-        'data_processing': ['pandas', 'numpy', 'openpyxl'],
-        'testing': ['pytest', 'unittest', 'mock'],
-        'api_development': ['fastapi', 'django_rest', 'flask_restful']
-    },
-    'utility': {
-        'file_operations': ['pathlib', 'shutil', 'os'],
-        'text_processing': ['re', 'string', 'textwrap'],
-        'date_time': ['datetime', 'dateutil', 'arrow']
-    }
-}
-
-# --- Source Priority Weights ---
+# --- Updated Source Priority Weights ---
 SOURCE_PRIORITY_WEIGHTS = {
     'stdlib': 1.0,
     'stackoverflow': 1.2,
     'github_readme': 1.1,
-    'github_files': 1.5,  # Higher weight for actual implementation
-    'documentation': 1.8,  # High priority for official docs
-    'freelancer': 2.0,    # Highest weight for freelancer-specific sources
-    'additional': 1.3
+    'github_files': 1.5,
+    'documentation': 1.8,
+    'freelancer': 2.0,        # Python freelance sources
+    'additional': 1.3,
+    'pinescript': 2.2,        # NEW: Pinescript sources get high priority
+    'tradingview': 2.5        # NEW: TradingView gets highest priority for trading
 }
+
+# --- Trading-Specific Settings ---
+TRADING_MODE = False  # Set to True to prioritize trading content
+TRADING_FOCUS_AREAS = [
+    'indicators', 'strategies', 'backtesting', 'risk_management',
+    'alerts', 'automation', 'portfolio_analysis', 'market_analysis'
+]
+
+# High-value trading keywords
+HIGH_VALUE_TRADING_KEYWORDS = [
+    'strategy', 'backtest', 'risk_management', 'portfolio', 'automation',
+    'multi_timeframe', 'alerts', 'webhook', 'quantitative', 'systematic'
+]
+
+# Trading project types priority
+TRADING_PROJECT_TYPES = [
+    'trading_strategies', 'custom_indicators', 'alert_systems',
+    'portfolio_tools', 'market_analysis', 'risk_tools',
+    'backtesting_frameworks', 'trading_automation'
+]
+
+# --- Content Processing Enhancement ---
+MULTI_LANGUAGE_PROCESSING = True
+CROSS_LANGUAGE_SUGGESTIONS = True  # Suggest related concepts across languages
+
+# Language-specific processing
+LANGUAGE_PROCESSORS = {
+    'python': {
+        'ast_analysis': True,
+        'import_extraction': True,
+        'function_extraction': True,
+        'class_extraction': True
+    },
+    'pinescript': {
+        'version_detection': True,
+        'script_type_detection': True,
+        'ta_component_extraction': True,
+        'trading_logic_analysis': True
+    }
+}
+
+# --- Updated Quality Filtering ---
+QUALITY_FILTER_ENABLED = True
+LANGUAGE_SPECIFIC_QUALITY_FILTERS = True
+
+# Quality scoring by language
+QUALITY_SCORE_WEIGHTS = {
+    'python': {
+        'min_score': 3,
+        'complexity_weight': 1.0,
+        'documentation_weight': 1.5,
+        'testing_weight': 1.2
+    },
+    'pinescript': {
+        'min_score': 4,
+        'trading_logic_weight': 2.0,
+        'version_weight': 1.3,
+        'complexity_weight': 1.0,
+        'practical_value_weight': 1.8
+    }
+}
+
+# --- Updated Categorization Settings ---
+CODE_CATEGORIZATION_ENABLED = True
+LANGUAGE_SPECIFIC_CATEGORIZATION = True
+
+# Categorization settings by language
+CATEGORIZATION_SETTINGS = {
+    'python': {
+        'freelance_scoring': True,
+        'complexity_analysis': True,
+        'pattern_detection': True
+    },
+    'pinescript': {
+        'trading_value_scoring': True,
+        'ta_component_analysis': True,
+        'strategy_analysis': True,
+        'complexity_analysis': True
+    }
+}
+
+# --- Enhanced Export Settings ---
+EMBEDDING_RAG_EXPORT_ENABLED = True
+DUAL_LLM_EXPORT = True
+LANGUAGE_SPECIFIC_EXPORTS = True
+
+# Export formats by content type
+EXPORT_FORMATS_BY_LANGUAGE = {
+    'python': ['jsonl', 'markdown', 'xml', 'yaml', 'dual_llm'],
+    'pinescript': ['jsonl', 'markdown', 'tradingview_friendly', 'dual_llm']
+}
+
+# --- Query Enhancement Settings ---
+QUERY_ENHANCEMENT_ENABLED = True
+INTELLIGENT_QUERY_EXPANSION = True
+CROSS_LANGUAGE_QUERY_MAPPING = True
+
+# Query mapping between languages
+QUERY_CROSS_MAPPINGS = {
+    'python_to_pinescript': {
+        'pandas': 'array analysis',
+        'matplotlib': 'plot functions',
+        'numpy': 'math calculations',
+        'requests': 'request.security',
+        'time': 'timeframe analysis'
+    },
+    'pinescript_to_python': {
+        'strategy': 'backtesting framework',
+        'indicator': 'technical analysis',
+        'plot': 'visualization',
+        'ta.': 'technical indicators',
+        'alert': 'notification system'
+    }
+}
+
+# --- Content-Specific Templates ---
+QUERY_TEMPLATES_BY_LANGUAGE = {
+    'python': {
+        'api_request': 'Show me {framework} examples for {use_case} with error handling and validation',
+        'data_task': 'Find {library} examples for {task} with performance considerations',
+        'integration': 'Get {service} integration examples with authentication and error handling',
+        'testing': 'Show me {framework} testing patterns for {component} with fixtures and mocks'
+    },
+    'pinescript': {
+        'indicator_request': 'Show me {indicator} examples with {features} and proper plotting',
+        'strategy_request': 'Find {strategy_type} strategies with {risk_features} and backtesting',
+        'alert_request': 'Get {alert_type} alert examples with {notification_method}',
+        'analysis_request': 'Show me {analysis_type} with {timeframe} and {visualization}'
+    }
+}
+
+# --- Performance and Caching ---
+LANGUAGE_SPECIFIC_CACHING = True
+CACHE_BY_CONTENT_TYPE = True
+
+# Cache settings by language
+CACHE_SETTINGS = {
+    'python': {
+        'cache_duration_hours': 24,
+        'max_cache_size_mb': 100
+    },
+    'pinescript': {
+        'cache_duration_hours': 48,  # Longer cache for trading content
+        'max_cache_size_mb': 50
+    }
+}
+
+# --- Validation Settings ---
+LANGUAGE_SPECIFIC_VALIDATION = True
+
+VALIDATION_SETTINGS = {
+    'python': {
+        'syntax_validation': True,
+        'import_validation': True
+    },
+    'pinescript': {
+        'version_validation': True,
+        'syntax_validation': True,
+        'script_type_validation': True
+    }
+}
+
+# --- UI Enhancements for Multi-Language ---
+SHOW_LANGUAGE_SELECTOR = True
+LANGUAGE_SPECIFIC_UI_HINTS = True
+CROSS_LANGUAGE_SUGGESTIONS_UI = True
+
+# Language display names
+LANGUAGE_DISPLAY_NAMES = {
+    'python': 'Python Development',
+    'pinescript': 'Pinescript Trading',
+    'auto': 'Auto-Detect'
+}
+
+# --- Advanced Features ---
+EXPERIMENTAL_FEATURES = {
+    'cross_language_learning': False,     # Learn patterns across languages
+    'trading_signal_detection': True,     # Detect trading signals in Pinescript
+    'code_conversion_suggestions': False, # Suggest equivalent code in other languages
+    'market_context_awareness': True      # Understand market context in queries
+}
+
+# --- Legacy Compatibility ---
+# Keep all existing Python-focused settings for backward compatibility
+FREELANCE_MODE = True
+QUALITY_FILTER_ENABLED = True
+SMART_DEDUPLICATION_ENABLED = True
+RAG_EXPORT_ENABLED = True
+
+# Existing Python settings remain unchanged...
+# (All the previous Python-specific configurations are preserved)
+
+# --- Existing settings preserved for backward compatibility ---
+STDLIB_DOCS_BASE_URL = "https://docs.python.org/3/library/{module_name}.html"
+STDLIB_DOCS_TIMEOUT = 15
+STACKEXCHANGE_API_BASE_URL = "https://api.stackexchange.com/2.3"
+STACKOVERFLOW_SITE_NAME = "stackoverflow"
+STACKOVERFLOW_SEARCH_ENDPOINT = "/search/advanced"
+STACKOVERFLOW_ANSWERS_ENDPOINT = "/questions/{qid}/answers"
+STACKOVERFLOW_SEARCH_MAX_RESULTS = 15
+STACKOVERFLOW_SEARCH_TIMEOUT = 20
+STACKOVERFLOW_ANSWERS_MAX_PER_QUESTION = 5
+STACKOVERFLOW_ANSWERS_TIMEOUT = 15
+GITHUB_README_MAX_REPOS = 7
+GITHUB_README_SNIPPETS_PER_REPO = 10
+GITHUB_FILES_MAX_REPOS = 10
+GITHUB_FILES_PER_REPO_TARGET = 15
+GITHUB_FILES_CANDIDATE_MULTIPLIER = 3
+GITHUB_MAX_FILE_SIZE_KB = 750
+GITHUB_FILE_DOWNLOAD_TIMEOUT = 20
+EXTRACT_WHOLE_SMALL_PY_FILES = True
+MAX_LINES_FOR_WHOLE_FILE_EXTRACTION = 150
+DEFAULT_SNIPPET_FILENAME_SLUG_MAX_LENGTH = 60
+
+# All other existing configurations remain the same...
+# (This ensures backward compatibility while adding Pinescript support)
